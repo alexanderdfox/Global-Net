@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VOICE-NET // Global International Rotary Dialer</title>
+    <style>
+        :root {
+            --bg-base: #0a0d14;
+            --panel-bg: #101522;
+            --border: #1e263c;
+            --border-hover: #313d5e;
+            --accent: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.2);
+            --success: #10b981;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --font-mono: 'Courier New', Courier, monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 16px;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+
+        .terminal-window {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 25px 35px -5px rgba(0, 0, 0, 0.6);
+            overflow: hidden;
+        }
+
+        .terminal-header {
+            background: #0d111a;
+            padding: 14px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .window-controls {
+            display: flex;
+            gap: 6px;
+        }
+
+        .control-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--border);
+        }
+        .control-dot:nth-child(1) { background: #ef4444; }
+        .control-dot:nth-child(2) { background: #f59e0b; }
+        .control-dot:nth-child(3) { background: #10b981; }
+
+        .terminal-title {
+            font-size: 0.75rem;
+            font-family: var(--font-mono);
+            color: var(--text-muted);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .terminal-body {
+            padding: 20px;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .metric-card {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 16px;
+        }
+
+        .metric-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .metric-value {
+            font-family: var(--font-mono);
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-main);
+            letter-spacing: 2px;
+            word-break: break-all;
+        }
+
+        .challenge-box {
+            background: rgba(59, 130, 246, 0.05);
+            border: 1px dashed var(--border);
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            font-size: 0.8rem;
+        }
+
+        .challenge-title {
+            color: var(--accent);
+            font-weight: bold;
+            font-family: var(--font-mono);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+        }
+
+        /* Responsive Rotary Container */
+        .rotary-container {
+            position: relative;
+            width: 100%;
+            max-width: 270px;
+            aspect-ratio: 1 / 1;
+            margin: 0 auto 20px auto;
+            background: radial-gradient(circle, rgba(255,255,255,0.01) 0%, transparent 70%);
+        }
+
+        .finger-stop {
+            position: absolute;
+            top: 14%;
+            right: 17%;
+            width: 5%;
+            height: 12%;
+            background: var(--text-muted);
+            border-radius: 2px;
+            z-index: 5;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+        }
+
+        .rotary-wheel {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: rgba(16, 21, 34, 0.7);
+            box-shadow: inset 0 0 25px rgba(0,0,0,0.7);
+            transform-origin: center center;
+        }
+
+        .dial-node {
+            position: absolute;
+            width: 20%;
+            height: 20%;
+            border-radius: 50%;
+            background: var(--panel-bg);
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transform: translate(-50%, -50%);
+            transition: background 0.15s, border-color 0.15s;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .dial-node:active {
+            background: var(--accent-glow);
+            border-color: var(--accent);
+        }
+
+        .node-number {
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: var(--text-main);
+            line-height: 1;
+            pointer-events: none;
+        }
+
+        .node-letters {
+            font-family: var(--font-mono);
+            font-size: 0.45rem;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+            margin-top: 2px;
+            line-height: 1;
+            pointer-events: none;
+        }
+
+        .console-output {
+            background: #06080d;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 14px;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .action-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-action {
+            flex: 1;
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-family: var(--font-mono);
+            text-transform: uppercase;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            letter-spacing: 0.5px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .btn-action:hover {
+            border-color: var(--border-hover);
+            color: var(--text-main);
+            background: rgba(255,255,255,0.02);
+        }
+
+        .btn-call {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: var(--success);
+            color: var(--success);
+            display: none;
+            font-weight: bold;
+        }
+        .btn-call:hover {
+            background: rgba(16, 185, 129, 0.2);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="terminal-window">
+        <div class="terminal-header">
+            <div class="window-controls">
+                <div class="control-dot"></div>
+                <div class="control-dot"></div>
+                <div class="control-dot"></div>
+            </div>
+            <div class="terminal-title">GLOBAL-NET // INTERNATIONAL DIALER</div>
+        </div>
+
+        <div class="terminal-body">
+            <div class="challenge-box">
+                <div class="challenge-title">Active Easter Egg / Challenge</div>
+                <div id="challengeText">Loading challenge...</div>
+            </div>
+
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-label">
+                        <span>Line Buffer</span>
+                        <span id="digitCount">0 Digits</span>
+                    </div>
+                    <div class="metric-value" id="dialedDisplay">_</div>
+                </div>
+            </div>
+
+            <div class="rotary-container">
+                <div class="finger-stop"></div>
+                <div class="rotary-wheel" id="rotaryWheel"></div>
+            </div>
+
+            <div class="console-output" id="consoleLog">
+                > Line active. Enter country code or local number...
+            </div>
+
+            <div class="action-row">
+                <button class="btn-action" id="resetBtn">Clear Buffer</button>
+                <a id="callBtn" class="btn-action btn-call" href="#">Connect Call</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Web Audio Synthesizer ---
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playStopClack() {
+            initAudio();
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(90, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(20, audioCtx.currentTime + 0.06);
+            gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.06);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.06);
+        }
+
+        function playWhirSound(durationMs) {
+            initAudio();
+            if (!audioCtx) return;
+            const bufferSize = audioCtx.sampleRate * (durationMs / 1000);
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.value = 800;
+            filter.Q.value = 3.0;
+
+            const gain = audioCtx.createGain();
+            gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + (durationMs / 1000));
+
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioCtx.destination);
+            noise.start();
+        }
+
+        // --- Easter Egg Directory ---
+        const easterEggs = [
+            { number: "2484345508", name: "The Rickroll Hotline", desc: "Dial 248-434-5508 to hear Rick Astley." },
+            { number: "7192662837", name: "Callin' Oates Hotline", desc: "Dial 719-266-2837 for Hall & Oates tracks." },
+            { number: "7078737862", name: "Kids Pep Talk Line", desc: "Dial 707-873-7862 for life advice from kids." },
+            { number: "8054574992", name: "Surfer Boy Pizza", desc: "Dial 805-457-4992 (Stranger Things Easter Egg)." }
+        ];
+
+        let currentChallenge = easterEggs[Math.floor(Math.random() * easterEggs.length)];
+        document.getElementById('challengeText').innerHTML = `<b>${currentChallenge.name}</b>: ${currentChallenge.desc}`;
+
+        // --- Application State ---
+        const dialedDisplay = document.getElementById('dialedDisplay');
+        const digitCountEl = document.getElementById('digitCount');
+        const rotaryWheel = document.getElementById('rotaryWheel');
+        const consoleLog = document.getElementById('consoleLog');
+        const resetBtn = document.getElementById('resetBtn');
+        const callBtn = document.getElementById('callBtn');
+
+        let rawDigits = '';
+        const maxDigits = 15; // Support full international length standards
+        let isProcessing = false;
+
+        const dialMap = [
+            { digit: '1', letters: '' },
+            { digit: '2', letters: 'ABC' },
+            { digit: '3', letters: 'DEF' },
+            { digit: '4', letters: 'GHI' },
+            { digit: '5', letters: 'JKL' },
+            { digit: '6', letters: 'MNO' },
+            { digit: '7', letters: 'PRS' },
+            { digit: '8', letters: 'TUV' },
+            { digit: '9', letters: 'WXY' },
+            { digit: '0', letters: 'OPER' }
+        ];
+
+        const nodeAngles = {};
+        const radiusPercent = 36;
+        const centerPercent = 50;
+        const stopAngle = 270;
+
+        dialMap.forEach((item, index) => {
+            const angleDeg = index * 32 + 35;
+            nodeAngles[item.digit] = angleDeg;
+
+            const rad = angleDeg * (Math.PI / 180);
+            const x = centerPercent + radiusPercent * Math.cos(rad);
+            const y = centerPercent + radiusPercent * Math.sin(rad);
+
+            const node = document.createElement('div');
+            node.className = 'dial-node';
+            node.style.left = `${x}%`;
+            node.style.top = `${y}%`;
+
+            const numSpan = document.createElement('span');
+            numSpan.className = 'node-number';
+            numSpan.textContent = item.digit;
+            node.appendChild(numSpan);
+
+            if (item.letters) {
+                const letSpan = document.createElement('span');
+                letSpan.className = 'node-letters';
+                letSpan.textContent = item.letters;
+                node.appendChild(letSpan);
+            }
+
+            node.addEventListener('click', (e) => {
+                e.preventDefault();
+                triggerAutoDial(item.digit, angleDeg);
+            });
+            rotaryWheel.appendChild(node);
+        });
+
+        function triggerAutoDial(digit, angleDeg) {
+            if (isProcessing || rawDigits.length >= maxDigits) return;
+            isProcessing = true;
+
+            const maxPull = stopAngle - angleDeg;
+            consoleLog.textContent = `> Dialing digit: [${digit}]`;
+
+            rotaryWheel.style.transition = 'transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)';
+            rotaryWheel.style.transform = `rotate(${maxPull}deg)`;
+
+            setTimeout(() => {
+                playStopClack();
+                rawDigits += digit;
+                updateDisplay();
+
+                const returnDuration = 0.35;
+                playWhirSound(returnDuration * 1000);
+
+                rotaryWheel.style.transition = `transform ${returnDuration}s cubic-bezier(0.15, 0.85, 0.35, 1.05)`;
+                rotaryWheel.style.transform = 'rotate(0deg)';
+
+                setTimeout(() => {
+                    isProcessing = false;
+                    checkCompletion();
+                }, returnDuration * 1000);
+
+            }, 200);
+        }
+
+        function updateDisplay() {
+            digitCountEl.textContent = `${rawDigits.length} Digits`;
+            if (rawDigits.length === 0) {
+                dialedDisplay.textContent = "_";
+                return;
+            }
+            
+            // Flexible formatting for international vs local numbers
+            let formatted = rawDigits;
+            if (rawDigits.length === 10) {
+                formatted = `(${rawDigits.slice(0,3)}) ${rawDigits.slice(3,6)}-${rawDigits.slice(6)}`;
+            } else if (rawDigits.length === 11 && rawDigits.startsWith('1')) {
+                formatted = `+1 (${rawDigits.slice(1,4)}) ${rawDigits.slice(4,7)}-${rawDigits.slice(7)}`;
+            } else if (rawDigits.length > 10) {
+                formatted = `+${rawDigits}`;
+            }
+            dialedDisplay.textContent = formatted;
+        }
+
+        function checkCompletion() {
+            if (rawDigits.length >= 3) {
+                consoleLog.textContent = `> Line ready. Tap 'Connect Call' to transmit.`;
+                consoleLog.style.color = "var(--success)";
+                
+                // Format tel: link with + prefix if international
+                let telNumber = rawDigits.length > 10 && !rawDigits.startsWith('+') ? `+${rawDigits}` : rawDigits;
+                callBtn.href = `tel:${telNumber}`;
+                callBtn.style.display = "inline-flex";
+            } else {
+                consoleLog.textContent = `> Enter full number...`;
+            }
+        }
+
+        function resetSession() {
+            rawDigits = '';
+            updateDisplay();
+            consoleLog.textContent = `> Line cleared. Ready to dial.`;
+            consoleLog.style.color = "var(--text-muted)";
+            callBtn.style.display = "none";
+        }
+
+        resetBtn.addEventListener('click', resetSession);
+        updateDisplay();
+    </script>
+</body>
+</html>
